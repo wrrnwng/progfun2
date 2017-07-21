@@ -26,10 +26,39 @@ class Pouring(capacity: Vector[Int]) {
     }
   }
 
-  val glasses = 0 until capacity.length
+  val glasses = capacity.indices
 
   val moves =
     (for (g <- glasses) yield Empty(g)) ++
       (for (g <- glasses) yield Fill(g)) ++
       (for (from <- glasses; to <- glasses if from != to) yield Pour(from, to))
+
+  class Path(history: List[Move], val endState: State) {
+    def extend(move: Move) = new Path(move :: history, move change endState)
+
+    override def toString: String = s"${history.reverse.mkString(" ")} --> $endState"
+  }
+
+  val initialPath = new Path(Nil, initialState)
+
+  def from(paths: Set[Path], explored: Set[State]): Stream[Set[Path]] =
+    if (paths.isEmpty) Stream.empty
+    else {
+      val more = for {
+        path <- paths
+        next <- moves map path.extend
+        if !(explored contains next.endState)
+      } yield next
+
+      paths #:: from(more, explored ++ (more map (_.endState)))
+    }
+
+  val pathSets: Stream[Set[Path]] = from(Set(initialPath), Set(initialState))
+
+  def solutions(target: Int): Stream[Path] = for {
+    pathSet <- pathSets
+    path <- pathSet
+    if path.endState contains target
+  } yield path
 }
+
